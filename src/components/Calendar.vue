@@ -3,6 +3,9 @@
     <v-col>
       <v-sheet height="64">
         <v-toolbar flat color="white">
+          <v-btn dark class="mr-4" color="primary" @click="showDialog = true">
+            New Event
+          </v-btn>
           <v-btn outlined class="mr-4" color="grey darken-2" @click="setToday">
             Today
           </v-btn>
@@ -47,6 +50,13 @@
           </v-menu>
         </v-toolbar>
       </v-sheet>
+
+      <Dialog
+        v-if="showDialog"
+        @add-event="createEvent($event)"
+        @close="showDialog = false"
+      />
+
       <v-sheet height="600">
         <v-calendar
           ref="calendar"
@@ -55,6 +65,7 @@
           :events="events"
           :event-color="getEventColor"
           :type="type"
+          :event-overlap-mode="mode"
           :weekdays="weekdays"
           @click:event="showEvent"
           @click:more="viewDay"
@@ -92,7 +103,7 @@
             </v-card-text>
             <v-card-actions>
               <v-btn
-                text
+                dark
                 color="primary"
                 v-if="currentlyEditing !== selectedEvent.id"
                 @click.prevent="editEvent(selectedEvent)"
@@ -120,8 +131,10 @@
 
 <script>
 import { db } from '@/firebase'
+import Dialog from './Dialog.vue'
 
 export default {
+  components: { Dialog },
   data: () => ({
     focus: '',
     type: 'month',
@@ -131,14 +144,8 @@ export default {
       day: 'Day',
       '4day': '4 Days'
     },
-    event: {
-      name: null,
-      details: null,
-      start: null,
-      end: null,
-      color: '#1976D2'
-    },
     weekdays: [1, 2, 3, 4, 5, 6, 0],
+    mode: 'stack',
     currentlyEditing: null,
     showDialog: false,
     selectedEvent: {},
@@ -162,10 +169,20 @@ export default {
           events.push({
             ...docData,
             start: this.convertTimestrampToDate(docData.start.seconds),
-            end: this.convertTimestrampToDate(docData.end.seconds)
+            end: this.convertTimestrampToDate(docData.end.seconds),
+            timed: true
           })
         })
         this.events = events
+      } catch (error) {
+        console.log(error)
+      }
+    },
+
+    async createEvent(event) {
+      try {
+        await db.collection('events').add(event)
+        this.getEvents()
       } catch (error) {
         console.log(error)
       }
