@@ -180,11 +180,24 @@ export default {
     },
 
     async createEvent(event) {
-      try {
-        await db.collection('events').add(event)
-        this.getEvents()
-      } catch (error) {
-        console.log(error)
+      let overlap = false
+      this.events.forEach(evt => {
+        if (this.dateRangeOverlaps(event.start, event.end, evt.start, evt.end))
+          overlap = true
+      })
+
+      if (!overlap) {
+        try {
+          await db.collection('events').add(event)
+          this.getEvents()
+          this.showDialog = false
+        } catch (error) {
+          console.log(error)
+          this.showDialog = false
+        }
+      } else {
+        alert('There is already an event at that time!')
+        this.showDialog = false
       }
     },
 
@@ -275,6 +288,13 @@ export default {
 
     rnd(a, b) {
       return Math.floor((b - a + 1) * Math.random()) + a
+    },
+
+    dateRangeOverlaps(aStart, aEnd, bStart, bEnd) {
+      if (aStart <= bStart && bStart <= aEnd) return true // b starts in a
+      if (aStart <= bEnd && bEnd <= aEnd) return true // b ends in a
+      if (bStart < aStart && aEnd < bEnd) return true // a in b
+      return false
     }
   }
 }
