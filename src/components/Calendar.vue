@@ -161,19 +161,20 @@ export default {
   methods: {
     async getEvents() {
       try {
-        const snapshot = await db.collection('events').get()
-        const events = []
-        snapshot.forEach(doc => {
-          const docData = doc.data()
-          docData.id = doc.id
-          events.push({
-            ...docData,
-            start: this.convertTimestrampToDate(docData.start.seconds),
-            end: this.convertTimestrampToDate(docData.end.seconds),
-            timed: true
+        await db.collection('events').onSnapshot(snapshot => {
+          const events = []
+          snapshot.forEach(doc => {
+            const docData = doc.data()
+            docData.id = doc.id
+            events.push({
+              ...docData,
+              start: this.convertTimestrampToDate(docData.start.seconds),
+              end: this.convertTimestrampToDate(docData.end.seconds),
+              timed: true
+            })
           })
+          this.events = events
         })
-        this.events = events
       } catch (error) {
         console.log(error)
       }
@@ -189,7 +190,6 @@ export default {
       if (!overlap) {
         try {
           await db.collection('events').add(event)
-          this.getEvents()
           this.showDialog = false
         } catch (error) {
           console.log(error)
@@ -224,7 +224,6 @@ export default {
             .doc(eventId)
             .delete()
           this.resetOptions()
-          this.getEvents()
         } catch (error) {
           console.log(error)
         }
