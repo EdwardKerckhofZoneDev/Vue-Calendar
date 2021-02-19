@@ -83,128 +83,114 @@
             </v-card-actions>
           </v-card>
         </v-menu>
+        {{ type }},{{ focus }}
       </v-sheet>
     </v-col>
   </v-row>
 </template>
 
 <script>
-import { Component, Vue } from 'vue-property-decorator'
+import { db } from '@/firebase'
 
-@Component
-export default class Calendar extends Vue {
-  focus = ''
-  type = 'month'
-  typeToLabel = {
-    month: 'Month',
-    week: 'Week',
-    day: 'Day',
-    '4day': '4 Days'
-  }
-  event = {
-    name: null,
-    details: null,
-    start: null,
-    end: null,
-    color: '#1976D2'
-  }
-  currentlyEditing = null
-  showDialog = false
-  selectedEvent = {}
-  selectedElement = null
-  selectedOpen = false
-  events = []
-  colors = [
-    'blue',
-    'indigo',
-    'deep-purple',
-    'cyan',
-    'green',
-    'orange',
-    'grey darken-1'
-  ]
-  names = [
-    'Meeting',
-    'Holiday',
-    'PTO',
-    'Travel',
-    'Event',
-    'Birthday',
-    'Conference',
-    'Party'
-  ]
+export default {
+  data: () => ({
+    focus: '',
+    type: 'month',
+    typeToLabel: {
+      month: 'Month',
+      week: 'Week',
+      day: 'Day',
+      '4day': '4 Days'
+    },
+    event: {
+      name: null,
+      details: null,
+      start: null,
+      end: null,
+      color: '#1976D2'
+    },
+    currentlyEditing: null,
+    showDialog: false,
+    selectedEvent: {},
+    selectedElement: null,
+    selectedOpen: false,
+    events: []
+  }),
 
   mounted() {
-    this.$refs.calendar.checkChange()
-  }
+    this.getEvents()
+  },
 
-  viewDay = ({ date }) => {
-    this.focus = date
-    this.type = 'day'
-  }
+  methods: {
+    async getEvents() {
+      try {
+        const snapshot = await db.collection('events').get()
+        const events = []
+        snapshot.forEach(doc => {
+          const docData = doc.data()
+          docData.id = doc.id
+          events.push({
+            ...docData,
+            start: this.convertTimestrampToDate(docData.start.seconds),
+            end: this.convertTimestrampToDate(docData.end.seconds)
+          })
+        })
+        this.events = events
+      } catch (error) {
+        console.log(error)
+      }
+    },
 
-  getEventColor = event => {
-    return event.color
-  }
+    viewDay({ date }) {
+      this.type = 'day'
+      this.focus = date
+    },
 
-  setToday = () => {
-    this.focus = ''
-  }
+    getEventColor(event) {
+      return event.color
+    },
 
-  prev = () => {
-    this.$refs.calendar.prev()
-  }
+    setToday() {
+      this.focus = ''
+    },
 
-  next = () => {
-    this.$refs.calendar.next()
-  }
+    prev() {
+      this.$refs.calendar.prev()
+    },
 
-  showEvent = ({ nativeEvent, event }) => {
-    const open = () => {
-      this.selectedEvent = event
-      this.selectedElement = nativeEvent.target
-      setTimeout(() => (this.selectedOpen = true), 10)
+    next() {
+      this.$refs.calendar.next()
+    },
+
+    showEvent({ nativeEvent, event }) {
+      const open = () => {
+        this.selectedEvent = event
+        this.selectedElement = nativeEvent.target
+        setTimeout(() => (this.selectedOpen = true), 10)
+      }
+
+      if (this.selectedOpen) {
+        this.selectedOpen = false
+        setTimeout(open, 10)
+      } else {
+        open()
+      }
+
+      nativeEvent.stopPropagation()
+    },
+
+    updateRange({ start, end }) {
+      this.start = start
+      this.end = end
+    },
+
+    convertTimestrampToDate(timestamp) {
+      return new Date(timestamp * 1000)
+    },
+
+    rnd(a, b) {
+      return Math.floor((b - a + 1) * Math.random()) + a
     }
-
-    if (this.selectedOpen) {
-      this.selectedOpen = false
-      setTimeout(open, 10)
-    } else {
-      open()
-    }
-
-    nativeEvent.stopPropagation()
-  }
-
-  updateRange = ({ start, end }) => {
-    const events = []
-
-    const min = new Date(`${start.date}T00:00:00`)
-    const max = new Date(`${end.date}T23:59:59`)
-    const days = (max.getTime() - min.getTime()) / 86400000
-    const eventCount = this.rnd(days, days + 20)
-
-    for (let i = 0; i < eventCount; i++) {
-      const allDay = this.rnd(0, 3) === 0
-      const firstTimestamp = this.rnd(min.getTime(), max.getTime())
-      const first = new Date(firstTimestamp - (firstTimestamp % 900000))
-      const secondTimestamp = this.rnd(2, allDay ? 288 : 8) * 900000
-      const second = new Date(first.getTime() + secondTimestamp)
-
-      events.push({
-        name: this.names[this.rnd(0, this.names.length - 1)],
-        start: first,
-        end: second,
-        color: this.colors[this.rnd(0, this.colors.length - 1)],
-        timed: !allDay
-      })
-    }
-
-    this.events = events
-  }
-
-  rnd = (a, b) => {
-    return Math.floor((b - a + 1) * Math.random()) + a
   }
 }
 </script>
